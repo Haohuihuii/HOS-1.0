@@ -19,6 +19,7 @@ void InitializeProcessManager() {
     processManager.Front = processManager.Rear = 0;
     CreateKernelProcess(idle);
     idleProcess = fetchProcess();
+    // ???
 }
 
 PID AllocatePID() {

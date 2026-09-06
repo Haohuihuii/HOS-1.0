@@ -180,3 +180,42 @@ BIOS
 - `ds/es/fs/gs` 和 `pushad` 是 GOS 汇编主动保存，不是 CPU 自动保存
 - `IRQ` 与 `Vector` 是两个不同概念
 - `SetInterrupt()` 和 `sti` 分别控制 PIC 层与 CPU 层的中断开关
+
+# 2026-09-06 Learning Log
+
+## 今日学习
+
+完成了第六部分「基础进程管理」的核心内容，并把进程创建、调度与上下文切换串联起来：
+
+- 复习进程、PID 与 PCB 的基本概念
+- 理解 `PIDAllocator` 使用 Bitmap 分配和释放 PID
+- 理解三种进程状态：
+  - `RUNNING`
+  - `RUNNABLE`
+  - `BLOCKED`
+- 学习 `ProcessManager` 与循环就绪队列
+- 理解 `Front / Rear / AddProcess() / fetchProcess()` 的作用
+- 学习 `Schedule()` 的基本调度流程
+- 复习 `TSS.ESP0`，理解其用于用户进程 `Ring3 → Ring0` 时切换到对应内核栈
+- 学习 `SwitchContext` 与 `SwitchProcess()`
+- 理解：
+   `保存 current 的 ESP → 切换 next 的 ESP → pop 恢复寄存器 → ret 恢复 EIP`
+- 学习 `CreateKernelProcess()`，理解新内核进程如何通过伪造 `SwitchContext` 第一次启动
+- 学习 `CreateUserProcess()`，理解用户进程同时需要 Kernel Stack 与 User Stack
+- 理解用户进程的两层上下文：
+  - `SwitchContext`：负责进程调度与切换
+  - `InterruptContext`：负责从 Ring0 恢复到 Ring3
+- 详细学习 `restore()`，理解：
+   `SwitchContext → restore() → InterruptContext → RestoreContext → Ring3 entry`
+- 进一步区分 `TSS.ESP0` 与 `InterruptContext.ESP3 / SS3`
+
+## 仍需注意
+
+- `current->ID` 是 PID 数值，不是 PID Bitmap 中的某一个 bit
+- `Current` 与 `RUNNABLE` 要结合 `Schedule()` 执行到哪一行来判断，不能混淆中间状态与调度完成后的稳定状态
+- `KernelStackPointer` 保存的是进程被切换时的内核栈指针，不等于固定的内核栈顶
+- `mov [eax], esp` 是保存旧进程 ESP，`mov esp, [eax]` 是切换到新进程内核栈
+- Kernel Process 第一次启动伪造的是 `SwitchContext`，不是 `InterruptContext`
+- User Process 的 `SwitchContext.EIP = restore`，而 `InterruptContext.EIP = entry`
+- `ESP3` 不是独立的 CPU 寄存器，而是 `InterruptContext` 中保存的 Ring3 用户栈指针
+- `MemoryFree()` 实际功能是将一段内存清零，并不是真正释放内存，函数命名容易产生误解

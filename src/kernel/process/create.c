@@ -1,13 +1,15 @@
 #include "mod.h"
+#include "../lib/method.h"
 
 extern void RestoreContext();
 
 /// @brief 让栈指针指向Interrupt Context方便返回用户态
 static void restore();
+static void copyPageTableRecursion(u32 childRootPPN, u32 parentRootPPN);
 
 
-void CreateKernelProcess(void* entry) {
-    PCB* process = (PCB*)Malloc(sizeof(PCB));
+void CreateKernelProcess(void *entry) {
+    PCB *process = (PCB *)Malloc(sizeof(PCB));
     process->ID = AllocatePID();
     process->Status = PROCESS_STATE_RUNNABLE;
     u32 stack = AllocateOnePage(KernelMode) + PageSize;
@@ -22,19 +24,19 @@ void CreateKernelProcess(void* entry) {
     );
 
     stack -= sizeof(SwitchContext);
-    SwitchContext* context = (SwitchContext*)stack;
+    SwitchContext *context = (SwitchContext *)stack;
     context->EIP = (u32)entry;
     context->EBP = 0;
     context->ESI = 0;
     context->EDI = 0;
     context->EBX = 0;
-    process->KernelStackPointer = (PhysicalAddress*)stack;
+    process->KernelStackPointer = (PhysicalAddress *)stack;
 
     AddProcess(process);
 }
 
-void CreateUserProcess(void* entry) {
-    PCB* process = (PCB*)Malloc(sizeof(PCB));
+void CreateUserProcess(void *entry) {
+    PCB *process = (PCB *)Malloc(sizeof(PCB));
     process->ID = AllocatePID();
     process->Status = PROCESS_STATE_RUNNABLE;
     u32 stack = AllocateOnePage(KernelMode) + PageSize;
@@ -42,59 +44,14 @@ void CreateUserProcess(void* entry) {
     // 构造用户专属页表，复制内核页表的前4MB等页号映射
     u32 userRootPPN = GetPPNFromAddressFloor(AllocateOnePage(KernelMode));
     process->RootPPN = userRootPPN;
-    PhysicalAddress userRootAddr = GetAddressFromPPN(userRootPPN);
     MemoryCopy(
-        (void*)userRootAddr,
-        (void*)GetRootPageTableAddr(),
+        GetAddressFromPPN(userRootPPN),
+        GetRootPageTableAddr(),
         PageSize
     );
 
-    // 为用户栈（UserStackTop = 0x10000000, 256MB处）建立页表映射
-    // 内核等值映射只覆盖 0-4MB，用户栈在 256MB 处超出范围，需手动建立 PDE/PTE
-    // 注意：x86 栈向下增长！ESP=0x10000000 时第一个 push 写入 0x0FFFFFFC，
-    //       属于页面 0x0FFFF000（PDE[63], PTE[1023]），而非 0x10000000
-    {
-        u32* pdeArray = (u32*)userRootAddr;
-        //userRootAddr -> 当前用户进程 Page Directory 的起始地址
-        u32 stackPageBase = UserStackTop - PageSize;               // 0x0FFFF000
-        u32 pdeIndex = stackPageBase >> 22;                       // = 63
-        u32 pteIndex = (stackPageBase >> 12) & 0x3FF;            // = 1023
-
-        // 页目录中为该 4MB 区域创建 PDE，指向新分配的二级页表
-        if (!(pdeArray[pdeIndex] & 1)) {
-            u32 secondPT = AllocateOnePage(KernelMode);
-            MemoryFree((void*)secondPT, PageSize);
-            u32 secondaryPPN = secondPT >> 12;
-            pdeArray[pdeIndex] = 0x007 | (secondaryPPN << 12);     // P=1, R/W=1, U/S=1 允许用户态访问
-        }
-
-        // 二级页表中为用户栈页面创建 PTE
-        // 注意：必须用 KernelMode 分配栈物理页，因为 KernelMode 返回 4MB 以内的地址，
-        // 内核等值映射可以访问；UserMode 返回 4MB 以上的地址，内核无法直接清零
-        u32* pteArray = (u32*)(pdeArray[pdeIndex] & 0xFFFFF000);
-        u32 stackPhys = AllocateOnePage(KernelMode);
-        u32 stackPPN = stackPhys >> 12;
-        pteArray[pteIndex] = 0x007 | (stackPPN << 12);            // P=1, R/W=1, U/S=1
-    }
-    /*
-    Virtual Address
-0x0FFFF000
-      │
-      ▼
-PDE[63]
-      │
-      ▼
-Page Table 63
-      │
-      ▼
-PTE[1023]
-      │
-      ▼
-Physical Page
-0x00130000
-    */
     stack -= sizeof(InterruptContext);
-    InterruptContext* trapContext = (InterruptContext*)stack;
+    InterruptContext *trapContext = (InterruptContext *)stack;
     trapContext->Vector = 0x80;
     trapContext->ErrCode = 0x88888888;
     trapContext->EDI = 0;
@@ -116,21 +73,98 @@ Physical Page
     trapContext->ESP3 = UserStackTop;
 
     stack -= sizeof(SwitchContext);
-    SwitchContext* context = (SwitchContext*)stack;
+    SwitchContext *context = (SwitchContext *)stack;
     context->EIP = restore;
     context->EBP = 0;
     context->ESI = 0;
     context->EDI = 0;
     context->EBX = 0;
-    process->KernelStackPointer = (PhysicalAddress*)stack;
+    process->KernelStackPointer = (PhysicalAddress *)stack;
 
     AddProcess(process);
 }
 
+PID ForkProcess() {
+    PCB *parent = GetCurrentProcess();
+    Assert(parent->Type == PROCESS_TYPE_USER);
+
+    PCB *child = (PCB *)Malloc(sizeof(PCB));
+    child->ID = AllocatePID();
+    child->ParentID = parent->ID;
+    child->Status = parent->Status;
+    child->Type = parent->Type;
+
+    // 复制内核栈
+    u32 stack = AllocateOnePage(KernelMode) + PageSize;
+    MemoryCopy(stack - PageSize, GetAddressFromPPN(GetPPNFromAddressFloor(parent->KernelStackPointer)), PageSize);
+    // 复制页表
+    u32 childRootPPN = GetPPNFromAddressFloor(AllocateOnePage(KernelMode));
+    copyPageTableRecursion(childRootPPN, parent->RootPPN);
+    child->RootPPN = childRootPPN;
+
+    stack -= sizeof(InterruptContext);
+    InterruptContext *ctx = (InterruptContext *)stack;
+    ctx->EAX = 0; // 子进程应该返回0
+
+    stack -= sizeof(SwitchContext);
+    SwitchContext *sctx = (SwitchContext *)stack;
+    sctx->EIP = restore;
+    sctx->EBP = sctx->ESI = sctx->EDI = sctx->EBX = 0;
+
+    child->KernelStackPointer = (PhysicalAddress *)stack;
+
+    AddProcess(child);
+    Schedule();
+    return child->ID;
+}
+
 static void restore() {
-    PCB* current = GetCurrentProcess();
+    PCB *current = GetCurrentProcess();
     u32 stack = ((u32)current->KernelStackPointer + PageSize - 1) / PageSize * PageSize;
     stack -= sizeof(InterruptContext);
     asm volatile ("movl %0, %%esp" : : "m"(stack));
     asm volatile ("jmp RestoreContext");
+}
+
+static void copyPageTableRecursion(u32 childRootPPN, u32 parentRootPPN) {
+    // 1. 复制根页表
+    MemoryCopy(
+        GetAddressFromPPN(childRootPPN),
+        GetAddressFromPPN(parentRootPPN),
+        PageSize
+    );
+
+    // 2. 复制第二级页表
+    DisablePaging();
+    PageTableEntry *childPTE = (PageTableEntry *)GetAddressFromPPN(childRootPPN);
+    PageTableEntry *parentPTE = (PageTableEntry *)GetAddressFromPPN(parentRootPPN);
+    for (Size i = 1; i < 1024; i++) {
+        if (parentPTE[i].Present == 0) continue;
+
+        u32 parentPPN = parentPTE[i].NextPPN;
+        u32 childPPN = GetPPNFromAddressFloor(AllocateOnePage(UserMode));
+        childPTE[i].NextPPN = childPPN;
+        MemoryCopy(
+            GetAddressFromPPN(childPPN),
+            GetAddressFromPPN(parentPPN),
+            PageSize
+        );
+
+        // 3. 复制页帧，数据页
+        PageTableEntry *secondChildPTE = (PageTableEntry *)GetAddressFromPPN(childPPN);
+        PageTableEntry *secondParentPTE = (PageTableEntry *)GetAddressFromPPN(parentPPN);
+        for (Size j = 0; j < 1024; j++) {
+            if (secondParentPTE[j].Present == 0) continue;
+
+            u32 parentPFN = secondParentPTE[j].NextPPN;
+            u32 childPFN = GetPPNFromAddressFloor(AllocateOnePage(UserMode));
+            secondChildPTE[j].NextPPN = childPFN;
+            MemoryCopy(
+                GetAddressFromPPN(childPFN),
+                GetAddressFromPPN(parentPFN),
+                PageSize
+            );
+        }
+    }
+    EnablePaging();
 }

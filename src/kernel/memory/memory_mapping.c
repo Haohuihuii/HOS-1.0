@@ -5,8 +5,8 @@ static u32 KernelRootPPN;
 
 
 void InitPageTableEntry(PageTableEntry* pte, u32 nextPPN, Boolean user);
-static void enablePaging();
-static void disablePaging();
+void EnablePaging();
+void DisablePaging();
 static PageTableEntry* findPTE(VirtualAddress addr);//只find
 static PageTableEntry* findPTECreate(VirtualAddress addr);//find 缺少时自动创建
 
@@ -49,14 +49,14 @@ void InitializeMemoryMapping() {
     // 告知CPU根页表的物理地址
     SetRootPageTableAddr(GetAddressFromPPN(KernelRootPPN));
     // 通知CPU开启分页功能
-    enablePaging();
+    EnablePaging();
 }
 
 // static methods implementation
 void MapPage(VirtualAddress addr) {
-    disablePaging();
+    DisablePaging();
     findPTECreate(addr);
-    enablePaging();
+    EnablePaging();
     FlushTLB(addr);
 }
 
@@ -74,14 +74,14 @@ void InitPageTableEntry(PageTableEntry* pte, u32 nextPPN, Boolean user) {
     pte->NextPPN = nextPPN;
 }
 
-static void enablePaging() {
+void EnablePaging() {
     asm volatile ("movl %cr0, %eax");
     asm volatile ("orl $0x80000000, %eax");
     asm volatile ("movl %eax, %cr0");
     //开启CR0的第31位 分页使能位
 }
 
-static void disablePaging() {
+void DisablePaging() {
     asm volatile ("movl %cr0, %eax");
     asm volatile ("andl $0x7FFFFFFF, %eax");
     asm volatile ("movl %eax, %cr0");

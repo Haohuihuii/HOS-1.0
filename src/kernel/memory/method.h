@@ -31,3 +31,5 @@ void FlushTLB(VirtualAddress addr);
 void InitializeMemoryMapping();
 void InitPageTableEntry(PageTableEntry* pte, u32 nextPPN, Boolean user);
 void MapPage(VirtualAddress addr);
+void EnablePaging();
+void DisablePaging();

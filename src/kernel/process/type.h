@@ -16,6 +16,7 @@ typedef enum ProcessType {
 typedef struct PCB {
     PhysicalAddress* KernelStackPointer;
     PID ID;
+    PID ParentID;
     ProcessState Status;
     ProcessType Type;
     u32 RootPPN;

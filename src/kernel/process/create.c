@@ -5,13 +5,14 @@ extern void RestoreContext();
 
 /// @brief 让栈指针指向Interrupt Context方便返回用户态
 static void restore();
-static void copyPageTableRecursion(u32 childRootPPN, u32 parentRootPPN);
+static void copyAddressSpace(u32 childRootPPN, u32 parentRootPPN);
 
 
 void CreateKernelProcess(void *entry) {
     PCB *process = (PCB *)Malloc(sizeof(PCB));
     process->ID = AllocatePID();
     process->Status = PROCESS_STATE_RUNNABLE;
+    process->ExitCode = 0;
     u32 stack = AllocateOnePage(KernelMode) + PageSize;
     process->Type = PROCESS_TYPE_KERNEL;
     // 复制内核态常驻页表内容，前4MB的等值映射
@@ -39,6 +40,7 @@ void CreateUserProcess(void *entry) {
     PCB *process = (PCB *)Malloc(sizeof(PCB));
     process->ID = AllocatePID();
     process->Status = PROCESS_STATE_RUNNABLE;
+    process->ExitCode = 0;
     u32 stack = AllocateOnePage(KernelMode) + PageSize;
     process->Type = PROCESS_TYPE_USER;
     // 构造用户专属页表，复制内核页表的前4MB等页号映射
@@ -91,15 +93,16 @@ PID ForkProcess() {
     PCB *child = (PCB *)Malloc(sizeof(PCB));
     child->ID = AllocatePID();
     child->ParentID = parent->ID;
-    child->Status = parent->Status;
+    child->Status = PROCESS_STATE_RUNNABLE;
+    //fork child as runnable
     child->Type = parent->Type;
-
+    child->ExitCode = 0;
     // 复制内核栈
     u32 stack = AllocateOnePage(KernelMode) + PageSize;
     MemoryCopy(stack - PageSize, GetAddressFromPPN(GetPPNFromAddressFloor(parent->KernelStackPointer)), PageSize);
     // 复制页表
     u32 childRootPPN = GetPPNFromAddressFloor(AllocateOnePage(KernelMode));
-    copyPageTableRecursion(childRootPPN, parent->RootPPN);
+    copyAddressSpace(childRootPPN, parent->RootPPN);
     child->RootPPN = childRootPPN;
 
     stack -= sizeof(InterruptContext);
@@ -126,7 +129,7 @@ static void restore() {
     asm volatile ("jmp RestoreContext");
 }
 
-static void copyPageTableRecursion(u32 childRootPPN, u32 parentRootPPN) {
+static void copyAddressSpace(u32 childRootPPN, u32 parentRootPPN) {
     // 1. 复制根页表
     MemoryCopy(
         GetAddressFromPPN(childRootPPN),
@@ -134,7 +137,7 @@ static void copyPageTableRecursion(u32 childRootPPN, u32 parentRootPPN) {
         PageSize
     );
 
-    // 2. 复制第二级页表
+    // 2. 复制第二级页表 此处应为PDE，由于都使用相同的结构，可能产生误解
     DisablePaging();
     PageTableEntry *childPTE = (PageTableEntry *)GetAddressFromPPN(childRootPPN);
     PageTableEntry *parentPTE = (PageTableEntry *)GetAddressFromPPN(parentRootPPN);

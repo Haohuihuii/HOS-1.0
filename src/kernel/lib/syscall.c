@@ -1,11 +1,18 @@
 #include "mod.h"
 
 static u32 SystemCall(u32 syscallNum, u32 arg1, u32 arg2, u32 arg3) {
-    asm volatile ("movl %0, %%eax" : : "m"(syscallNum));
-    asm volatile ("movl %0, %%ebx" : : "m"(arg1));
-    asm volatile ("movl %0, %%ecx" : : "m"(arg2));
-    asm volatile ("movl %0, %%edx" : : "m"(arg3));
-    asm volatile ("int $0x80");
+    u32 result;
+
+    asm volatile(
+        "int $0x80"
+        : "=a"(result)
+        : "a"(syscallNum),
+          "b"(arg1),
+          "c"(arg2),
+          "d"(arg3)
+        : "memory","cc"
+    );
+    return result;
 }
 
 void SyscallTest() {
@@ -13,7 +20,7 @@ void SyscallTest() {
 }
 
 u32 Fork() {
-    SystemCall(SYSCALL_FORK, 0, 0, 0);
+    return SystemCall(SYSCALL_FORK, 0, 0, 0);
 }
 
 void Yield() {

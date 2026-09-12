@@ -5,7 +5,8 @@
 typedef enum ProcessState {
     PROCESS_STATE_RUNNABLE,
     PROCESS_STATE_RUNNING,
-    PROCESS_STATE_BLOCKED
+    PROCESS_STATE_BLOCKED,
+    PROCESS_STATE_ZOMBIE
 } ProcessState;
 
 typedef enum ProcessType {
@@ -20,6 +21,7 @@ typedef struct PCB {
     ProcessState Status;
     ProcessType Type;
     u32 RootPPN;
+    i32 ExitCode;
 } PCB;
 
 // PID allocator

@@ -66,7 +66,7 @@ void Schedule() {
     
     // 如果就绪队列里有进程，并且当前进程存在，说明可以执行切换
     PCB* current = processManager.Current;
-    if (current->ID && current->Status != PROCESS_STATE_BLOCKED) {
+    if (current->ID && current->Status == PROCESS_STATE_RUNNABLE) {
         current->Status = PROCESS_STATE_RUNNABLE;
         AddProcess(current);
     }

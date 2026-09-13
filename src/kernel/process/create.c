@@ -32,7 +32,7 @@ void CreateKernelProcess(void *entry) {
     context->EDI = 0;
     context->EBX = 0;
     process->KernelStackPointer = (PhysicalAddress *)stack;
-
+    RegisterProcess(process);
     AddProcess(process);
 }
 

@@ -14,6 +14,7 @@ static Boolean isEmpty();
 void InitializeProcessManager() {
     processManager.Current = NULL;
     for (int i = 0; i < MAX_PROCESS_COUNT; i++) {
+        processManager.ProcessTable[i] = NULL;
         processManager.RunnableProcesses[i] = NULL;
     }
     processManager.Front = processManager.Rear = 0;
@@ -21,7 +22,12 @@ void InitializeProcessManager() {
     idleProcess = fetchProcess();
     // ???
 }
-
+void RegisterProcess(PCB* process){
+    Assert(process != NULL);
+    Assert(process->ID < MAX_PROCESS_COUNT);
+    Assert(processManager.ProcessTable[process->ID] == NULL);
+    processManager.ProcessTable[process->ID] = process;
+}
 PID AllocatePID() {
     for (i32 i = 0; i < MAX_PROCESS_COUNT / 32; i++) {
         for (i32 j = 0; j < 32; j++) {
@@ -37,6 +43,10 @@ void FreePID(PID pid) {
     pidAllocator.Bitmap[pid / 32] &= ~(1 << (pid % 32));
 }
 
+PCB* GetProcessByPID(PID pid) {
+    Assert(pid < MAX_PROCESS_COUNT);
+    return processManager.ProcessTable[pid];
+}
 PCB* GetCurrentProcess() {
     return processManager.Current;
 }

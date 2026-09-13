@@ -210,7 +210,6 @@ BIOS
 - 进一步区分 `TSS.ESP0` 与 `InterruptContext.ESP3 / SS3`
 
 ## 仍需注意
-
 - `current->ID` 是 PID 数值，不是 PID Bitmap 中的某一个 bit
 - `Current` 与 `RUNNABLE` 要结合 `Schedule()` 执行到哪一行来判断，不能混淆中间状态与调度完成后的稳定状态
 - `KernelStackPointer` 保存的是进程被切换时的内核栈指针，不等于固定的内核栈顶
@@ -219,3 +218,11 @@ BIOS
 - User Process 的 `SwitchContext.EIP = restore`，而 `InterruptContext.EIP = entry`
 - `ESP3` 不是独立的 CPU 寄存器，而是 `InterruptContext` 中保存的 Ring3 用户栈指针
 - `MemoryFree()` 实际功能是将一段内存清零，并不是真正释放内存，函数命名容易产生误解
+
+
+# 2026-09-12 Learning Log
+- 完成 Fork / Parent / Child / Process Tree 主体流程学习，理解父进程返回 Child PID、子进程返回 `0` 的实现。
+- 理解 `exit / zombie / wait` 的基本关系：
+   `exit → ZOMBIE → parent wait → 最终回收`。
+- 明确 Zombie 不应再次进入 Runnable Queue，因此 Scheduler 应只把原本 `RUNNING` 的进程重新设为 `RUNNABLE`。
+- 设计 PCB 增加 `ExitCode`，用于保存子进程退出状态。

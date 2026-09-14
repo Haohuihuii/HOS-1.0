@@ -226,3 +226,19 @@ BIOS
    `exit → ZOMBIE → parent wait → 最终回收`。
 - 明确 Zombie 不应再次进入 Runnable Queue，因此 Scheduler 应只把原本 `RUNNING` 的进程重新设为 `RUNNABLE`。
 - 设计 PCB 增加 `ExitCode`，用于保存子进程退出状态。
+
+
+# 2026-09-14 Learning Log
+## 今日学习
+
+- 为进程管理器增加 `ProcessTable`，用于保存所有尚未彻底回收的进程 PCB。
+- 实现 `RegisterProcess()` 与 `GetProcessByPID()`，建立 `PID → PCB` 的查询关系。
+- 将 Kernel Process 和 User Process 创建流程接入 `ProcessTable`。
+- 添加内核调试debug命令记录，以及 `p`、`p/x`、`bt`、F5、F10 等基本调试操作。
+- 明确 `ProcessTable` 与 Runnable Queue 的区别：前者描述“进程是否存在”，后者描述“进程当前是否可等待 CPU”。
+
+## 仍需注意
+
+- 新进程应先 `RegisterProcess()`，再 `AddProcess()`。
+- 后续还需要让 Fork Child 注册进 `ProcessTable`。
+- `exit / zombie / wait / 资源回收` 尚未完整实现，COW 也还未开始。

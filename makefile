@@ -97,8 +97,8 @@ $(IMG): $(TARGET)/bootloader/boot.bin $(TARGET)/bootloader/loader.bin $(NakedKer
 debug: build 
 	qemu-system-i386 -m 32M \
 		-drive file=$(IMG),if=ide,index=0,media=disk,format=raw \
-		-s -S
-
+		-s -S \
+		-display none
 clean:
 	rm -rf $(TARGET) img
 	rm -rf *.bin *.o *.lock *.ini *.s *.asm

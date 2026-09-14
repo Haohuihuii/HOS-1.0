@@ -6,8 +6,8 @@
             "type": "cppdbg",
             "name": "GOS",
             "request": "launch",
-            "program": "${workspaceRoot}/target/kernel/os.elf", // 被调试的程序
-            "cwd": "${workspaceRoot}",
+            "program": "${workspaceFolder}/target/kernel/os.elf", // 被调试的程序
+            "cwd": "${workspaceFolder}",
             "MIMode": "gdb",
             "miDebuggerServerAddress": "localhost:1234",
             "miDebuggerPath": "/usr/bin/gdb",

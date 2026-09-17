@@ -13,6 +13,9 @@ static void syscallYield() {
     Schedule();
 }
 
+static void syscallExit(i32 exitCode){
+    ExitProcess(exitCode);
+}
 u32 TrapHandler(u32 syscallNum, u32 arg1, u32 arg2, u32 arg3) {
     switch (syscallNum) {
     case SYSCALL_TEST:
@@ -20,6 +23,9 @@ u32 TrapHandler(u32 syscallNum, u32 arg1, u32 arg2, u32 arg3) {
         break;
     case SYSCALL_FORK:
         return syscallFork();
+    case SYSCALL_EXIT:
+        syscallExit(arg1);
+        break;
     case SYSCALL_YIELD:
         syscallYield();
         break;

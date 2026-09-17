@@ -26,3 +26,7 @@ u32 Fork() {
 void Yield() {
     SystemCall(SYSCALL_YIELD, 0, 0, 0);
 }
+
+void Exit(i32 exitCode) {
+    SystemCall(SYSCALL_EXIT, exitCode, 0, 0);
+}

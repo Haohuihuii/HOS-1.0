@@ -242,3 +242,18 @@ BIOS
 - 新进程应先 `RegisterProcess()`，再 `AddProcess()`。
 - 后续还需要让 Fork Child 注册进 `ProcessTable`。
 - `exit / zombie / wait / 资源回收` 尚未完整实现，COW 也还未开始。
+
+# 2026-09-17 Learning Log
+
+## 今日学习
+
+- 完成 `ForkProcess()` Child 注册到 `ProcessTable`。
+- 实现 `ExitProcess(exitCode)`，支持保存退出码并进入 `ZOMBIE`。
+- 接通 `Exit()` 系统调用链：User → `int 0x80` → Kernel → `ExitProcess()`。
+- 用 GDB 验证 `RUNNING → ZOMBIE`、Zombie 不重新入队、Scheduler 切换到其他进程。
+- 解决两个链接错误：测试函数名不一致、`panic`/`Panic` 大小写错误。
+
+## 仍需注意
+
+- Zombie 目前只保留状态和 PCB，尚未最终回收资源。
+- 下一步实现 `Wait()`，处理 Parent 阻塞、唤醒和 Zombie 回收。

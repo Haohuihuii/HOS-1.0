@@ -7,7 +7,7 @@ Size Printf(const char *fmt, ...);
 Size Println(const char *fmt, ...);
 Size PrintWithColor(ConsoleColor color, const char *fmt, ...);
 void Panic(const char *fmt, ...);
-
+void Exit(i32 exitCode);
 // Assertion
 void AssertFailed(char *exp, char *file, char *base, i32 line);
 #define Assert(exp) \

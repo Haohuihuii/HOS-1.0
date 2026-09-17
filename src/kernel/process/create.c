@@ -115,7 +115,7 @@ PID ForkProcess() {
     sctx->EBP = sctx->ESI = sctx->EDI = sctx->EBX = 0;
 
     child->KernelStackPointer = (PhysicalAddress *)stack;
-
+    RegisterProcess(child);
     AddProcess(child);
     Schedule();
     return child->ID;

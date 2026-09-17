@@ -36,3 +36,22 @@ void TestUserProcessWithPageing() {
     CreateUserProcess(user_process);
     Schedule();
 }
+
+void ExitTestKeeper(){
+    while(TRUE){
+        Schedule();
+    }
+}
+
+void ExitTestUserProcess(){
+    Exit(123);
+    while(TRUE){
+
+    }
+}
+
+void TestUserProcessExit(){
+    CreateKernelProcess(ExitTestKeeper);
+    CreateUserProcess(ExitTestUserProcess);
+    Schedule();
+}

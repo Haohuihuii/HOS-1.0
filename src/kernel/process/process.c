@@ -62,6 +62,19 @@ void AddProcess(PCB* process) {
     processManager.Rear = (processManager.Rear + 1) % MAX_PROCESS_COUNT;
 }
 
+void ExitProcess(i32 exitCode) {
+    PCB* current = GetCurrentProcess();
+
+    Assert(current != NULL);
+    Assert(current->Type == PROCESS_TYPE_USER);
+
+    current->ExitCode = exitCode;
+    current->Status = PROCESS_STATE_ZOMBIE;
+    Schedule();
+    //主动触发一次调度
+    Panic("Zombie process resumed");
+}
+
 void Schedule() {
     // 如果就绪队列里没有进程，并且当前进程也不存在，说明还未初始化进程管理器，直接退出即可
     if (processManager.Current == NULL && isEmpty()) {

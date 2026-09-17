@@ -32,5 +32,6 @@ void KernelMain() {
     Printf("After page fault test: %d\n", *test);*/
 
     //TestKernelProcessWithPaging();
-    TestUserProcessWithPageing();
+    //TestUserProcessWithPageing();
+    TestUserProcessExit();
 }
